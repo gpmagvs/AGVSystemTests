@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AGVSystem\AGVSystem.csproj" />
+    <ProjectReference Include="..\EquipmentManagment\EquipmentManagment.csproj" />
   </ItemGroup>
 
   <ItemGroup>

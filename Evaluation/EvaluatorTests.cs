@@ -17,7 +17,6 @@ namespace AGVSystem.Evaluation.Tests
         public static void Init(TestContext context)
         {
             AGVSConfigulator.Init();
-
             StaEQPManagager.InitializeAsync(new EquipmentManagment.MainEquipment.clsEQManagementConfigs()
             {
                 EQConfigPath = $"{AGVSConfigulator.SysConfigs.EQManagementConfigs.EquipmentManagementConfigFolder}//EQConfigs.json",
