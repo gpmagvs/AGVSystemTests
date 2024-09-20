@@ -16,14 +16,14 @@ namespace EquipmentManagment.MainEquipment.EQGroup.Tests
         [ClassInitialize]
         public static void Init(TestContext _textContext)
         {
-
-            AGVSConfigulator.Init();
+            string configFolderPath = "C:\\AGVS";
+            AGVSConfigulator.Init(configFolderPath);
+            string eqConfigFolder = AGVSConfigulator.SysConfigs.PATHES_STORE[SystemConfigs.PATH_ENUMS.EQ_CONFIGS_FOLDER_PATH];
             StaEQPManagager.InitializeAsync(new EquipmentManagment.MainEquipment.clsEQManagementConfigs()
             {
-                EQConfigPath = $"{AGVSConfigulator.SysConfigs.EQManagementConfigs.EquipmentManagementConfigFolder}//EQConfigs.json",
-                WIPConfigPath = $"{AGVSConfigulator.SysConfigs.EQManagementConfigs.EquipmentManagementConfigFolder}//WIPConfigs.json",
-                ChargeStationConfigPath = $"{AGVSConfigulator.SysConfigs.EQManagementConfigs.EquipmentManagementConfigFolder}//ChargStationConfigs.json",
-                EQGroupConfigPath = $"{AGVSConfigulator.SysConfigs.EQManagementConfigs.EquipmentManagementConfigFolder}//EQGroupConfigs.json",
+                EQConfigPath = $"{eqConfigFolder}//EQConfigs.json",
+                WIPConfigPath = $"{eqConfigFolder}//WIPConfigs.json",
+                ChargeStationConfigPath = $"{eqConfigFolder}//ChargStationConfigs.json",
 
             });
             Console.WriteLine("EqGroupTests class init done.");
