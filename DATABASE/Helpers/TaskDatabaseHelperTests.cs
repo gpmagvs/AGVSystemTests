@@ -15,7 +15,7 @@ namespace AGVSystemCommonNet6.DATABASE.Helpers.Tests
         [TestMethod()]
         public void CheckAndRebuildFailReasonTest()
         {
-            AlarmManagerCenter.Initialize();
+            AlarmManagerCenter.InitializeAsync();
             TaskDatabaseHelper.CheckAndRebuildFailReason($"[1063] UNLOAD_BUT_AGV_NO_CARGO_MOUNTED(UNLOAD_BUT_AGV_NO_CARGO_MOUNTED)");
         }
     }
