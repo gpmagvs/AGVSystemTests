@@ -48,10 +48,20 @@
 		<ProjectReference Include="..\AGVSystemCommonNet6\AGVSystemCommonNet6.csproj" />
 		<ProjectReference Include="..\AGVSystem\AGVSystem.csproj" />
 		<ProjectReference Include="..\EquipmentManagment\EquipmentManagment.csproj" />
+		<ProjectReference Include="..\VMSystem\VMSystem.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="SystemConfigs-SomeThingChange.json">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="SystemConfigs.json">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
 	</ItemGroup>
 
 </Project>

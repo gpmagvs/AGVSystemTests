@@ -1,0 +1,64 @@
+{
+  "BaseOnKGSWebAGVSystem": false,
+  "FieldName": "YM-3F-MEC/SE",
+  "DBConnection": "Server=127.0.0.1;Database=GPMAGVs_3FSE_TEST;User Id=sa;Password=12345678;Encrypt=False;Max Pool Size=250",
+  "WarRoomDBConnection": "Server=127.0.0.1;Database=3FSE;User Id=sa;Password=12345678;Encrypt=False;MultipleActiveResultSets=True;Connection Lifetime=1;Min Pool Size=5;Max Pool Size=50;",
+  "PartsAGVSDBConnection": "Server=127.0.0.1;Database=AGVS_Info;User Id=sa;Password=Tsmc12345678;Encrypt=False;MultipleActiveResultSets=True;Connection Lifetime=1;Min Pool Size=5;Max Pool Size=50;MultipleActiveResultSets=True;",
+  "KGSWebAGVSystemDBConnection": "Server=127.0.0.1;Database=WebAGVSystem;User Id=sa;Password=12345678;Encrypt=False;MultipleActiveResultSets=True;Connection Lifetime=1;Min Pool Size=5;Max Pool Size=50;MultipleActiveResultSets=True;",
+  "VMSHost": "http://localhost:5036",
+  "AGVSHost": "http://localhost:5216",
+  "VMSTcpServerIP": "127.0.0.1",
+  "VMSTcpServerPort": 5500,
+  "RestoreRunModeWhenRestartProgram": false,
+  "WebUserLogoutExipreTime": 2400,
+  "MapConfigs": {
+    "MapFolder": "/Map",
+    "CurrentMapFileName": "Map_UMTC_3F_MEC.json"
+  },
+  "EQManagementConfigs": {
+    "UseEQEmu": false,
+    "EquipmentManagementConfigFolder": "/EquipmentManagement_MEC",
+    "DisableEntryPointWhenEQMaintaining": false,
+    "DisableEntryPointWhenEQPartsReplacing": false,
+    "TransferToNGPortWhenCarrierIDMissmatch": false,
+    "PickRackPortToPlaceUseSmartSelectMode": false,
+    "CheckEqStatusDownSignal": false
+  },
+  "AutoModeConfigs": {
+    "AGVIdleTimeUplimitToExecuteChargeTask": 3
+  },
+  "AutoSendDailyData": {
+    "SavePath": "\\\\192.168.0.123\\aut\\CST_Log\\gpm_test_pc",
+    "DAILY_DATA_REPORT_TEMP_STORE_FOLDER": "D:\\aut_upload_local_backup\\",
+    "userName": "user",
+    "password": "12345678",
+    "SaveTime": 1
+  },
+  "clsAGVS_Print_Data": {
+    "SavePath": "d:\\AGVS_Print_Data\\"
+  },
+  "TrobleShootingFolder": "C:\\AGVSystem\\Resources",
+  "MaterialBufferLevelMonitor": {
+    "MonitorSwitch": true,
+    "LevelThreshold": 0
+  },
+  "LinkPartsAGVSystem": false,
+  "TransactionToWarRoomDatabase": false,
+  "OrderState": {
+    "TaskNoExecutedTimeout": 20.0,
+    "TaskDoActionTimeout": 20.0,
+    "CancelTaskWhenTaskNoExecutedTimeout": false,
+    "CancelTaskWhenTaskDoActionTimeout": false
+  },
+  "SECSGem": {
+    "DeviceID": "2F_AGVC02",
+    "CarrierLOCPrefixName": "ABFRACK005",
+    "SystemID": "022",
+    "UnknowTrayIDFlowNumberUsed": 1699,
+    "UnknowRackIDFlowNumberUsed": 24,
+    "DoubleUnknowDFlowNumberUsed": 236,
+    "DoubleUnknowRackIDFlowNumberUsed": 65,
+    "MissMatchTrayIDFlowNumberUsed": 0,
+    "MissMatchRackIDFlowNumberUsed": 2
+  }
+}
