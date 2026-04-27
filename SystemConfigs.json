@@ -43,7 +43,6 @@
     "LevelThreshold": 0
   },
   "LinkPartsAGVSystem": false,
-  "TransactionToWarRoomDatabase": false,
   "OrderState": {
     "TaskNoExecutedTimeout": 20.0,
     "TaskDoActionTimeout": 20.0,
