@@ -83,5 +83,29 @@ namespace EquipmentManagment.Tool.Tests
             // 0b10110001 有 4 個 bit 為 1
             Assert.AreEqual(4, bits.Sum());
         }
+
+        [TestMethod]
+        public void GetHighLowBytes_SplitsLowThenHigh()
+        {
+            byte[] bytes = 0x1234.GetHighLowBytes();
+            Assert.AreEqual(2, bytes.Length);
+            Assert.AreEqual(0x34, bytes[0]);
+            Assert.AreEqual(0x12, bytes[1]);
+        }
+
+        [TestMethod]
+        public void GetHighLowBytes_ThenGetInt_RoundTrip()
+        {
+            const int original = 0x1234;
+            short back = original.GetHighLowBytes().GetInt();
+            Assert.AreEqual((short)original, back);
+        }
+
+        [TestMethod]
+        public void LinearToDouble_And_DoubleToLinear_RoundTrip()
+        {
+            byte[] encoded = 25.0.DoubleToLinear();
+            Assert.AreEqual(25.0, encoded.LinearToDouble());
+        }
     }
 }
