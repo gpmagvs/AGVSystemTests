@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 namespace AGVSystem.Tests
 {
     [TestClass()]
+    [Ignore("依賴 AGVS 設定檔比對環境，非純單元測試")]
     public class AGVSystemConfigsCompareHelperTests
     {
         [TestMethod()]

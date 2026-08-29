@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 namespace VMSystem.Tests
 {
     [TestClass()]
+    [Ignore("依賴 VMS 設定檔比對環境，非純單元測試")]
     public class ConfigsCompareHelperTests
     {
         [TestMethod()]

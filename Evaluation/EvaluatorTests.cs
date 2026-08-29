@@ -11,6 +11,7 @@ using EquipmentManagment.Manager;
 namespace AGVSystem.Evaluation.Tests
 {
     [TestClass()]
+    [Ignore("依賴 C:\\AGVS 與長時間評估流程；EvaluatorTest 尚未實作")]
     public class EvaluatorTests
     {
         [ClassInitialize]

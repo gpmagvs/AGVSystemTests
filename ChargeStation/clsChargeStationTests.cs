@@ -10,6 +10,7 @@ using AGVSystemCommonNet6;
 namespace EquipmentManagment.ChargeStation.Tests
 {
     [TestClass()]
+    [Ignore("需實體充電站硬體 192.168.0.181，CI／本機無設備時略過")]
     public class clsChargeStationTests
     {
         [TestMethod()]

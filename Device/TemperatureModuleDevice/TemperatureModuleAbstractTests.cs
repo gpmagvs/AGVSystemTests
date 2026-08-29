@@ -10,6 +10,7 @@ using RosSharp.RosBridgeClient.MessageTypes.Sensor;
 namespace EquipmentManagment.Device.TemperatureModuleDevice.Tests
 {
     [TestClass()]
+    [Ignore("需實體溫度模組硬體（COM／TCP），CI／本機無設備時略過")]
     public class TemperatureModuleAbstractTests
     {
         [TestMethod()]

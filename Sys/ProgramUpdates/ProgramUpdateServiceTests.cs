@@ -1,41 +1,84 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using AGVSystemCommonNet6.Sys.ProgramUpdates;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using AGVSystemCommonNet6.Sys.ProgramUpdates;
 
 namespace AGVSystemCommonNet6.Sys.ProgramUpdates.Tests
 {
-    [TestClass()]
+    [TestClass]
     public class ProgramUpdateServiceTests
     {
-        [TestMethod()]
-        public void UnZipFileTest()
+        [TestMethod]
+        public async Task UnZipFile_NullFile_CreatesEmptyTempFolder()
         {
-            ProgramUpdateService programUpdateService = new ProgramUpdateService();
-            programUpdateService.UnZipFile(null).GetAwaiter().GetResult();
-            Assert.Fail();
+            ProgramUpdateService service = new ProgramUpdateService();
+            string folder = await service.UnZipFile(null);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(folder));
+            Assert.IsTrue(Directory.Exists(folder));
+            try { Directory.Delete(folder, true); } catch { }
         }
 
-        [TestMethod()]
-        public void CreateCopyFileRunBatFileTest()
+        [TestMethod]
+        public void CreateCopyFileRunBatFile_CreatesBatWithRobocopyAndDelay()
         {
-            string testDestine = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"TestFolder\\{DateTime.Now.Ticks}");
-            Directory.CreateDirectory(testDestine);
-            ProgramUpdateService programUpdateService = new ProgramUpdateService();
-            string tempBatFileFullPath = programUpdateService.CreateCopyFileRunBatFile("C:/temp", destineFolderPath: testDestine);
-            Assert.Fail();
+            string source = Path.Combine(Path.GetTempPath(), $"upd_src_{Guid.NewGuid():N}");
+            string dest = Path.Combine(Path.GetTempPath(), $"upd_dst_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(source);
+            Directory.CreateDirectory(dest);
+
+            ProgramUpdateService service = new ProgramUpdateService();
+            string batPath = service.CreateCopyFileRunBatFile(source, delayTime: 3, destineFolderPath: dest);
+
+            Assert.IsTrue(File.Exists(batPath));
+            Assert.IsTrue(batPath.EndsWith(".bat", StringComparison.OrdinalIgnoreCase));
+            string content = File.ReadAllText(batPath);
+            Assert.IsTrue(content.Contains("robocopy", StringComparison.OrdinalIgnoreCase));
+            Assert.IsTrue(content.Contains(source));
+            Assert.IsTrue(content.Contains(dest));
+            Assert.IsTrue(content.Contains("timeout /t 3"));
+
+            try
+            {
+                File.Delete(batPath);
+                Directory.Delete(source, true);
+                Directory.Delete(dest, true);
+            }
+            catch { }
         }
 
-        [TestMethod()]
-        public void HandleUpdateFileUploadedTest()
+        [TestMethod]
+        public void CreateCopyFileRunBatFile_DefaultDestine_UsesBaseDirectory()
         {
-            ProgramUpdateService programUpdateService = new ProgramUpdateService();
-            programUpdateService.HandleUpdateFileUploaded(null).GetAwaiter().GetResult();
+            string source = Path.Combine(Path.GetTempPath(), $"upd_src2_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(source);
+            ProgramUpdateService service = new ProgramUpdateService();
+            string batPath = service.CreateCopyFileRunBatFile(source, delayTime: 1);
+            string content = File.ReadAllText(batPath);
+            Assert.IsTrue(content.Contains(AppDomain.CurrentDomain.BaseDirectory.TrimEnd('/', '\\'))
+                || content.Contains(AppDomain.CurrentDomain.BaseDirectory.Replace('\\', '/')));
+            try
+            {
+                File.Delete(batPath);
+                Directory.Delete(source, true);
+            }
+            catch { }
+        }
 
-            Assert.Fail();
+        [TestMethod]
+        public async Task HandleUpdateFileUploaded_NullFiles_ReturnsFailure()
+        {
+            ProgramUpdateService service = new ProgramUpdateService();
+            ProgramUpdateResult result = await service.HandleUpdateFileUploaded(null!);
+            Assert.IsFalse(result.success);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(result.message));
+        }
+
+        [TestMethod]
+        public async Task HandleUpdateFileUploaded_EmptyCollection_ReturnsFailure()
+        {
+            ProgramUpdateService service = new ProgramUpdateService();
+            // FormFileCollection 空集合
+            var empty = new Microsoft.AspNetCore.Http.FormFileCollection();
+            ProgramUpdateResult result = await service.HandleUpdateFileUploaded(empty);
+            Assert.IsFalse(result.success);
+            Assert.IsTrue(result.message.Contains("1") || result.message.Contains("數量"));
         }
     }
 }

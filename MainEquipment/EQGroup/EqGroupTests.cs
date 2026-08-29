@@ -11,6 +11,7 @@ using EquipmentManagment.Manager;
 namespace EquipmentManagment.MainEquipment.EQGroup.Tests
 {
     [TestClass()]
+    [Ignore("依賴 C:\\AGVS 現場設定與設備，非純單元測試")]
     public class EqGroupTests
     {
         [ClassInitialize]

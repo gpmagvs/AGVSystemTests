@@ -11,6 +11,7 @@ using Polly;
 namespace EquipmentManagment.ChargeStation.Tests
 {
     [TestClass()]
+    [Ignore("需實體 Modbus IO 硬體，CI／本機無設備時略過")]
     public class ChargerIOSynchronizerTests
     {
         [ClassInitialize]

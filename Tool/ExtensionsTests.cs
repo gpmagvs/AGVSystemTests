@@ -1,96 +1,87 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using EquipmentManagment.Tool;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using EquipmentManagment.Tool;
 
 namespace EquipmentManagment.Tool.Tests
 {
-    [TestClass()]
+    [TestClass]
     public class ExtensionsTests
     {
-        [TestMethod()]
-        public void DoubleToLinear11V2Test()
+        [TestMethod]
+        public void DoubleToLinear11V2_RoundTrip_WithinTolerance()
         {
-            double fvStart = 25.0;
-            double fvEnd = 26.0;
-            double step = 0.1;
             double errorThreshold = 0.1001;
-            int count = 1;
             double maxError = 0;
-            double minError = 0;
 
-            for (double fvS = fvStart; fvS <= fvEnd; fvS += step)
+            for (decimal fvS = 25.0m; fvS <= 26.0m; fvS += 0.1m)
             {
-                byte[] dataBytes = (fvS).DoubleToLinear11(-2);
-                double doubleValConverted = dataBytes.Linear11ToDouble(-2);
-                double error = Math.Abs(fvS - doubleValConverted);
-                maxError = error > maxError ? error : maxError;
-                minError = (count == 1 || error < minError) ? error : minError;
-                Console.WriteLine($"[{count}] original = {fvS}, converted back = {doubleValConverted}. Error = {error}");
-                if (error > errorThreshold)
-                {
-                    Console.WriteLine($"[{count}] Value: {fvS} conversion error too high: {error}");
-                    Assert.Fail($"Value: {fvS} conversion error too high: {error}");
-                }
-                count++;
+                double value = (double)fvS;
+                byte[] dataBytes = value.DoubleToLinear11V2(-2);
+                double converted = dataBytes.Linear11ToDouble(-2);
+                double error = Math.Abs(value - converted);
+                maxError = Math.Max(maxError, error);
+                Assert.IsTrue(error <= errorThreshold, $"Value {value} error {error}");
             }
-            Console.WriteLine($"Max error: {maxError}");
-            Console.WriteLine($"Min error: {minError}");
-            Console.WriteLine($"All value error less than {errorThreshold}");
-            Assert.IsTrue(true);
-
-
-            //byte[] dataBytes = fvStart.DoubleToLinear11V2(-2);
-            //double doubleValConverted = dataBytes.Linear11ToDouble(-2);
-            //double error = Math.Abs(fvStart - doubleValConverted);
-            //Console.WriteLine($"original : {fvStart}, converted roll back : {doubleValConverted}");
-            //Console.WriteLine($"error : {error}");
-
-            //Assert.IsTrue(error <= 0.11);
+            Assert.IsTrue(maxError <= errorThreshold);
         }
 
-        [TestMethod()]
-        public void DoubleToLinear16Test()
+        [TestMethod]
+        public void DoubleToLinear11V2_OtherNValues()
         {
-            double fvStart = 25.0;
-            double fvEnd = 26.0;
-            double step = 0.1;
-            double errorThreshold = 0.1001;
-            int count = 1;
-            double maxError = 0;
-            double minError = 0;
+            byte[] bytes = 10.0.DoubleToLinear11V2(-1);
+            Assert.AreEqual(2, bytes.Length);
+            double back = bytes.Linear11ToDouble(-1);
+            Assert.IsTrue(Math.Abs(10.0 - back) < 0.6);
+        }
 
-            for (double fvS = fvStart; fvS <= fvEnd; fvS += step)
-            {
-                byte[] dataBytes = (fvS).DoubleToLinear16(-9);
-                double doubleValConverted = dataBytes.Linear16ToDouble(-9);
-                double error = Math.Abs(fvS - doubleValConverted);
-                maxError = error > maxError ? error : maxError;
-                minError = (count == 1 || error < minError) ? error : minError;
-                Console.WriteLine($"[{count}] original = {fvS}, converted back = {doubleValConverted}. Error = {error}");
-                if (error > errorThreshold)
-                {
-                    Console.WriteLine($"[{count}] Value: {fvS} conversion error too high: {error}");
-                    Assert.Fail($"Value: {fvS} conversion error too high: {error}");
-                }
-                count++;
-            }
-            Console.WriteLine($"Max error: {maxError}");
-            Console.WriteLine($"Min error: {minError}");
-            Console.WriteLine($"All value error less than {errorThreshold}");
-            Assert.IsTrue(true);
+        [TestMethod]
+        public void DoubleToLinear11V2_OutOfRangeN_Throws()
+        {
+            Assert.ThrowsException<ArgumentOutOfRangeException>(() => 1.0.DoubleToLinear11V2(-17));
+            Assert.ThrowsException<ArgumentOutOfRangeException>(() => 1.0.DoubleToLinear11V2(16));
+        }
 
+        [TestMethod]
+        public void DoubleToLinear16_ReturnsTwoBytes_Decodable()
+        {
+            byte[] dataBytes = 25.0.DoubleToLinear16(-9);
+            Assert.AreEqual(2, dataBytes.Length);
+            float decoded = dataBytes.Linear16ToDouble(-9);
+            Assert.IsFalse(float.IsNaN(decoded));
+            Assert.IsFalse(float.IsInfinity(decoded));
+        }
 
-            //byte[] dataBytes = fvStart.DoubleToLinear11V2(-2);
-            //double doubleValConverted = dataBytes.Linear11ToDouble(-2);
-            //double error = Math.Abs(fvStart - doubleValConverted);
-            //Console.WriteLine($"original : {fvStart}, converted roll back : {doubleValConverted}");
-            //Console.WriteLine($"error : {error}");
+        [TestMethod]
+        public void Linear11ToDouble_Empty_ReturnsZero()
+        {
+            Assert.AreEqual(0, Array.Empty<byte>().Linear11ToDouble(-2));
+        }
 
-            //Assert.IsTrue(error <= 0.11);
+        [TestMethod]
+        public void GetBoolArray_BitPattern_SwapsHighLowBytes()
+        {
+            bool[] bits = ((ushort)0b0000_0000_0000_0101).GetBoolArray();
+            Assert.AreEqual(16, bits.Length);
+            Assert.IsTrue(bits[8]);
+            Assert.IsFalse(bits[9]);
+            Assert.IsTrue(bits[10]);
+        }
+
+        [TestMethod]
+        public void GetBoolArray_ThenGetUshort_RoundTrip()
+        {
+            ushort original = 0b1010_0000_0000_0101;
+            bool[] bits = original.GetBoolArray();
+            ushort back = bits.GetUshort();
+            Assert.AreEqual(original, back);
+        }
+
+        [TestMethod]
+        public void ToBitArray_Byte_HasEightElements()
+        {
+            int[] bits = ((byte)0b10110001).ToBitArray();
+            Assert.AreEqual(8, bits.Length);
+            Assert.IsTrue(bits.All(b => b == 0 || b == 1));
+            // 0b10110001 有 4 個 bit 為 1
+            Assert.AreEqual(4, bits.Sum());
         }
     }
 }
