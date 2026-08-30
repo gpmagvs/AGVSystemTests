@@ -116,15 +116,51 @@ jobs:
           echo "SOURCE_SHA=$SOURCE_SHA"
           echo "CHECKOUT_REF=$CHECKOUT_REF"
 
+      - name: Preflight (private repo checkout)
+        if: ${{ github.repository != env.SOURCE_REPO && (secrets.AGVSYSTEM_CHECKOUT_TOKEN == '' || secrets.AGVSYSTEM_CHECKOUT_TOKEN == null) }}
+        shell: bash
+        run: |
+          cat <<'MSG'
+          ::error::無法 checkout 來源 repo：看起來你在 gpmagvs/AGVSystemTests 內直接執行此 workflow，但要 checkout 的 SOURCE_REPO 不是本 repo，而且沒有設定 secrets.AGVSYSTEM_CHECKOUT_TOKEN。
+
+          這通常是因為 gpmagvs/AGVSystem 是 private repo，AGVSystemTests 的 GITHUB_TOKEN 沒有權限讀取，因此會出現「Repository not found (404)」。
+
+          解法（二選一）：
+          1) 推薦：在 gpmagvs/AGVSystem 的 develop push 觸發（workflow_call），讓 GITHUB_TOKEN 來自 AGVSystem（不需要 PAT）
+          2) 或：在 gpmagvs/AGVSystemTests 設定 repo secret `AGVSYSTEM_CHECKOUT_TOKEN`（PAT / fine-grained token，至少 contents:read 可讀取 gpmagvs/AGVSystem）
+
+          ---
+
+          ::error::Cannot checkout source repo: this workflow is running in gpmagvs/AGVSystemTests, but SOURCE_REPO is different and secrets.AGVSYSTEM_CHECKOUT_TOKEN is not set.
+
+          This usually means gpmagvs/AGVSystem is private and the AGVSystemTests GITHUB_TOKEN cannot read it (GitHub returns 404 “Repository not found”).
+
+          Fix (choose one):
+          1) Recommended: trigger via workflow_call from gpmagvs/AGVSystem (develop push) so the GITHUB_TOKEN belongs to AGVSystem (no PAT needed)
+          2) Or: add repo secret `AGVSYSTEM_CHECKOUT_TOKEN` in gpmagvs/AGVSystemTests (PAT / fine-grained token with at least contents:read for gpmagvs/AGVSystem)
+          MSG
+          exit 1
+
       # Checkout AGVSystem first into workspace root, so AGVSystemTests can reference ../AGVSystem, ../VMSystem, etc.
-      - name: Checkout source repo (AGVSystem)
+      # Path A (PAT-free): when called from AGVSystem via workflow_call, github.repository == SOURCE_REPO.
+      - name: Checkout source repo (AGVSystem) - PAT free (caller repo)
+        if: ${{ github.repository == env.SOURCE_REPO }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+          fetch-depth: 0
+          submodules: recursive
+
+      # Path B: running in AGVSystemTests and checking out a different (likely private) repo requires an explicit token.
+      - name: Checkout source repo (AGVSystem) - with explicit token
+        if: ${{ github.repository != env.SOURCE_REPO }}
         uses: actions/checkout@v4
         with:
           repository: ${{ env.SOURCE_REPO }}
           ref: ${{ env.CHECKOUT_REF }}
           fetch-depth: 0
           submodules: recursive
-          token: ${{ secrets.AGVSYSTEM_CHECKOUT_TOKEN || github.token }}
+          token: ${{ secrets.AGVSYSTEM_CHECKOUT_TOKEN }}
 
       - name: Checkout this repo (AGVSystemTests)
         uses: actions/checkout@v4
