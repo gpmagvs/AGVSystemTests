@@ -17,6 +17,11 @@ on:
         description: "Commit SHA from source repo (preferred when provided)"
         type: string
         required: false
+      tests_ref:
+        description: "Ref of gpmagvs/AGVSystemTests to checkout (default master)"
+        type: string
+        required: false
+        default: "master"
     secrets:
       AGVSYSTEM_CHECKOUT_TOKEN:
         description: "Token to checkout private gpmagvs/AGVSystem (contents:read)."
@@ -41,6 +46,11 @@ on:
         description: "Commit SHA from source repo (preferred when provided)"
         type: string
         required: false
+      tests_ref:
+        description: "Ref of gpmagvs/AGVSystemTests to checkout (default master)"
+        type: string
+        required: false
+        default: "master"
 
 permissions:
   contents: read
@@ -75,15 +85,18 @@ jobs:
             source_repo='${{ github.event.client_payload.source_repo }}'
             source_ref='${{ github.event.client_payload.source_ref }}'
             source_sha='${{ github.event.client_payload.source_sha }}'
+            tests_ref='${{ github.event.client_payload.tests_ref }}'
           else
             source_repo='${{ inputs.source_repo }}'
             source_ref='${{ inputs.source_ref }}'
             source_sha='${{ inputs.source_sha }}'
+            tests_ref='${{ inputs.tests_ref }}'
           fi
 
           : "${source_repo:=gpmagvs/AGVSystem}"
           : "${source_ref:=develop}"
           : "${source_sha:=}"
+          : "${tests_ref:=master}"
 
           {
             echo "SOURCE_REPO=$source_repo"
@@ -97,19 +110,7 @@ jobs:
             echo "CHECKOUT_REF=$source_ref" >> "$GITHUB_ENV"
           fi
 
-          # Derive called workflow repo/ref to checkout AGVSystemTests correctly (even when caller repo differs).
-          tests_repo="${GITHUB_WORKFLOW_REF%%/.github/workflows/*}"
-          tests_ref="${GITHUB_WORKFLOW_REF##*@}"
-          if [[ -z "$tests_repo" || "$tests_repo" == "$GITHUB_WORKFLOW_REF" ]]; then
-            tests_repo="gpmagvs/AGVSystemTests"
-          fi
-          if [[ -z "$tests_ref" || "$tests_ref" == "$GITHUB_WORKFLOW_REF" ]]; then
-            tests_ref="master"
-          fi
-          {
-            echo "TESTS_REPO=$tests_repo"
-            echo "TESTS_REF=$tests_ref"
-          } >> "$GITHUB_ENV"
+          echo "TESTS_REF=$tests_ref" >> "$GITHUB_ENV"
 
           echo "AGVS_TEST_SQL_SERVER=127.0.0.1" >> "$GITHUB_ENV"
           echo "AGVS_TEST_SQL_USER=sa" >> "$GITHUB_ENV"
@@ -122,7 +123,6 @@ jobs:
           echo "SOURCE_REF=$SOURCE_REF"
           echo "SOURCE_SHA=$SOURCE_SHA"
           echo "CHECKOUT_REF=$CHECKOUT_REF"
-          echo "TESTS_REPO=$TESTS_REPO"
           echo "TESTS_REF=$TESTS_REF"
 
       - name: Preflight (private repo checkout)
@@ -181,7 +181,7 @@ jobs:
       - name: Checkout this repo (AGVSystemTests)
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.TESTS_REPO }}
+          repository: gpmagvs/AGVSystemTests
           ref: ${{ env.TESTS_REF }}
           path: AGVSystemTests
 
