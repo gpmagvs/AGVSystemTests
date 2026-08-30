@@ -49,6 +49,8 @@ jobs:
   unit-tests:
     name: dotnet test
     runs-on: ubuntu-latest
+    env:
+      AGVSYSTEM_CHECKOUT_TOKEN: ${{ secrets.AGVSYSTEM_CHECKOUT_TOKEN }}
 
     services:
       mssql:
@@ -61,48 +63,53 @@ jobs:
           - 1433:1433
 
     steps:
-      - name: Resolve source metadata (workflow_call)
-        if: github.event_name == 'workflow_call'
-        shell: bash
-        run: |
-          {
-            echo "SOURCE_REPO=${{ inputs.source_repo }}"
-            echo "SOURCE_REF=${{ inputs.source_ref }}"
-            echo "SOURCE_SHA=${{ inputs.source_sha }}"
-          } >> "$GITHUB_ENV"
-
-      - name: Resolve source metadata (workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          {
-            echo "SOURCE_REPO=${{ github.event.inputs.source_repo }}"
-            echo "SOURCE_REF=${{ github.event.inputs.source_ref }}"
-            echo "SOURCE_SHA=${{ github.event.inputs.source_sha }}"
-          } >> "$GITHUB_ENV"
-
-      - name: Resolve source metadata (repository_dispatch)
-        if: github.event_name == 'repository_dispatch'
-        shell: bash
-        run: |
-          {
-            echo "SOURCE_REPO=${{ github.event.client_payload.source_repo }}"
-            echo "SOURCE_REF=${{ github.event.client_payload.source_ref }}"
-            echo "SOURCE_SHA=${{ github.event.client_payload.source_sha }}"
-          } >> "$GITHUB_ENV"
-
-      - name: Apply defaults
+      - name: Resolve inputs / payload + defaults
         shell: bash
         run: |
           set -euo pipefail
-          : "${SOURCE_REPO:=gpmagvs/AGVSystem}"
-          : "${SOURCE_REF:=develop}"
-          : "${SOURCE_SHA:=}"
-          if [[ -n "$SOURCE_SHA" ]]; then
-            echo "CHECKOUT_REF=$SOURCE_SHA" >> "$GITHUB_ENV"
+
+          # NOTE:
+          # - For reusable workflow usage, github.event_name is the caller event (push/pull_request/etc).
+          # - Except for repository_dispatch, always read from `inputs.*` (available for workflow_call and workflow_dispatch).
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            source_repo='${{ github.event.client_payload.source_repo }}'
+            source_ref='${{ github.event.client_payload.source_ref }}'
+            source_sha='${{ github.event.client_payload.source_sha }}'
           else
-            echo "CHECKOUT_REF=$SOURCE_REF" >> "$GITHUB_ENV"
+            source_repo='${{ inputs.source_repo }}'
+            source_ref='${{ inputs.source_ref }}'
+            source_sha='${{ inputs.source_sha }}'
           fi
+
+          : "${source_repo:=gpmagvs/AGVSystem}"
+          : "${source_ref:=develop}"
+          : "${source_sha:=}"
+
+          {
+            echo "SOURCE_REPO=$source_repo"
+            echo "SOURCE_REF=$source_ref"
+            echo "SOURCE_SHA=$source_sha"
+          } >> "$GITHUB_ENV"
+
+          if [[ -n "$source_sha" ]]; then
+            echo "CHECKOUT_REF=$source_sha" >> "$GITHUB_ENV"
+          else
+            echo "CHECKOUT_REF=$source_ref" >> "$GITHUB_ENV"
+          fi
+
+          # Derive called workflow repo/ref to checkout AGVSystemTests correctly (even when caller repo differs).
+          tests_repo="${GITHUB_WORKFLOW_REF%%/.github/workflows/*}"
+          tests_ref="${GITHUB_WORKFLOW_REF##*@}"
+          if [[ -z "$tests_repo" || "$tests_repo" == "$GITHUB_WORKFLOW_REF" ]]; then
+            tests_repo="gpmagvs/AGVSystemTests"
+          fi
+          if [[ -z "$tests_ref" || "$tests_ref" == "$GITHUB_WORKFLOW_REF" ]]; then
+            tests_ref="master"
+          fi
+          {
+            echo "TESTS_REPO=$tests_repo"
+            echo "TESTS_REF=$tests_ref"
+          } >> "$GITHUB_ENV"
 
           echo "AGVS_TEST_SQL_SERVER=127.0.0.1" >> "$GITHUB_ENV"
           echo "AGVS_TEST_SQL_USER=sa" >> "$GITHUB_ENV"
@@ -115,11 +122,20 @@ jobs:
           echo "SOURCE_REF=$SOURCE_REF"
           echo "SOURCE_SHA=$SOURCE_SHA"
           echo "CHECKOUT_REF=$CHECKOUT_REF"
+          echo "TESTS_REPO=$TESTS_REPO"
+          echo "TESTS_REF=$TESTS_REF"
 
       - name: Preflight (private repo checkout)
-        if: ${{ github.repository != env.SOURCE_REPO && (secrets.AGVSYSTEM_CHECKOUT_TOKEN == '' || secrets.AGVSYSTEM_CHECKOUT_TOKEN == null) }}
         shell: bash
         run: |
+          if [[ "${GITHUB_REPOSITORY}" == "${SOURCE_REPO}" ]]; then
+            # PAT-free path (running inside the source repo).
+            exit 0
+          fi
+          if [[ -n "${AGVSYSTEM_CHECKOUT_TOKEN:-}" ]]; then
+            exit 0
+          fi
+
           cat <<'MSG'
           ::error::無法 checkout 來源 repo：看起來你在 gpmagvs/AGVSystemTests 內直接執行此 workflow，但要 checkout 的 SOURCE_REPO 不是本 repo，而且沒有設定 secrets.AGVSYSTEM_CHECKOUT_TOKEN。
 
@@ -160,11 +176,13 @@ jobs:
           ref: ${{ env.CHECKOUT_REF }}
           fetch-depth: 0
           submodules: recursive
-          token: ${{ secrets.AGVSYSTEM_CHECKOUT_TOKEN }}
+          token: ${{ env.AGVSYSTEM_CHECKOUT_TOKEN }}
 
       - name: Checkout this repo (AGVSystemTests)
         uses: actions/checkout@v4
         with:
+          repository: ${{ env.TESTS_REPO }}
+          ref: ${{ env.TESTS_REF }}
           path: AGVSystemTests
 
       - name: Setup .NET
