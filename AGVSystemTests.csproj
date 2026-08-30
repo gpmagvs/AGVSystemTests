@@ -7,6 +7,8 @@
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
 		<EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+		<HasAgvSystemSibling>false</HasAgvSystemSibling>
+		<HasAgvSystemSibling Condition="Exists('..\AGVSystem\AGVSystem.csproj')">true</HasAgvSystemSibling>
 		<AssemblyVersion>1.0.306</AssemblyVersion>
 		<FileVersion>1.0.306</FileVersion>
 	</PropertyGroup>
@@ -47,6 +49,17 @@
 
 	<ItemGroup>
 		<Compile Include="UnitTests/**/*.cs" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(HasAgvSystemSibling)'=='true'">
+		<ProjectReference Include="..\AGVSystemCommonNet6\AGVSystemCommonNet6.csproj" />
+		<ProjectReference Include="..\AGVSystem\AGVSystem.csproj" />
+		<ProjectReference Include="..\EquipmentManagment\EquipmentManagment.csproj" />
+		<ProjectReference Include="..\VMSystem\VMSystem.csproj" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(HasAgvSystemSibling)'=='true'">
+		<Compile Include="**/*.cs" Exclude="UnitTests/**/*.cs;bin/**;obj/**" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -11,6 +11,19 @@ namespace AGVSystemTests.DATABASE
         public const string DefaultUser = "sa";
         public const string DefaultPassword = "12345678";
 
+        /// <summary>
+        /// CI 可透過環境變數覆寫測試用 SQL Server 連線設定。
+        /// - AGVS_TEST_SQL_SERVER
+        /// - AGVS_TEST_SQL_USER
+        /// - AGVS_TEST_SQL_PASSWORD（或 MSSQL_SA_PASSWORD）
+        /// </summary>
+        private static string Server => Environment.GetEnvironmentVariable("AGVS_TEST_SQL_SERVER") ?? DefaultServer;
+        private static string User => Environment.GetEnvironmentVariable("AGVS_TEST_SQL_USER") ?? DefaultUser;
+        private static string Password =>
+            Environment.GetEnvironmentVariable("AGVS_TEST_SQL_PASSWORD")
+            ?? Environment.GetEnvironmentVariable("MSSQL_SA_PASSWORD")
+            ?? DefaultPassword;
+
         public string DatabaseName { get; }
         public string MasterConnectionString { get; }
         public string ConnectionString { get; }
@@ -29,10 +42,10 @@ namespace AGVSystemTests.DATABASE
         {
             var builder = new SqlConnectionStringBuilder
             {
-                DataSource = DefaultServer,
+                DataSource = Server,
                 InitialCatalog = databaseName,
-                UserID = DefaultUser,
-                Password = DefaultPassword,
+                UserID = User,
+                Password = Password,
                 Encrypt = false,
                 TrustServerCertificate = true,
                 MultipleActiveResultSets = true,
