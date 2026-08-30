@@ -1,0 +1,192 @@
+name: Unit Tests
+
+on:
+  workflow_call:
+    inputs:
+      source_repo:
+        description: "Repo that triggered the run (e.g. gpmagvs/AGVSystem)"
+        type: string
+        required: false
+        default: "gpmagvs/AGVSystem"
+      source_ref:
+        description: "Ref (branch/tag) from source repo (e.g. develop)"
+        type: string
+        required: false
+        default: "develop"
+      source_sha:
+        description: "Commit SHA from source repo (preferred when provided)"
+        type: string
+        required: false
+    secrets:
+      AGVSYSTEM_CHECKOUT_TOKEN:
+        description: "Token to checkout private gpmagvs/AGVSystem (contents:read)."
+        required: false
+
+  repository_dispatch:
+    types: [run-unit-tests]
+
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: "Repo that triggered the run (e.g. gpmagvs/AGVSystem)"
+        type: string
+        required: false
+        default: "gpmagvs/AGVSystem"
+      source_ref:
+        description: "Ref (branch/tag) from source repo (e.g. develop)"
+        type: string
+        required: false
+        default: "develop"
+      source_sha:
+        description: "Commit SHA from source repo (preferred when provided)"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: dotnet test
+    runs-on: ubuntu-latest
+
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_PID: "Developer"
+          MSSQL_SA_PASSWORD: "AGVS_UT_Sql!Passw0rd"
+        ports:
+          - 1433:1433
+
+    steps:
+      - name: Resolve source metadata (workflow_call)
+        if: github.event_name == 'workflow_call'
+        shell: bash
+        run: |
+          {
+            echo "SOURCE_REPO=${{ inputs.source_repo }}"
+            echo "SOURCE_REF=${{ inputs.source_ref }}"
+            echo "SOURCE_SHA=${{ inputs.source_sha }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Resolve source metadata (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          {
+            echo "SOURCE_REPO=${{ github.event.inputs.source_repo }}"
+            echo "SOURCE_REF=${{ github.event.inputs.source_ref }}"
+            echo "SOURCE_SHA=${{ github.event.inputs.source_sha }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Resolve source metadata (repository_dispatch)
+        if: github.event_name == 'repository_dispatch'
+        shell: bash
+        run: |
+          {
+            echo "SOURCE_REPO=${{ github.event.client_payload.source_repo }}"
+            echo "SOURCE_REF=${{ github.event.client_payload.source_ref }}"
+            echo "SOURCE_SHA=${{ github.event.client_payload.source_sha }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Apply defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${SOURCE_REPO:=gpmagvs/AGVSystem}"
+          : "${SOURCE_REF:=develop}"
+          : "${SOURCE_SHA:=}"
+          if [[ -n "$SOURCE_SHA" ]]; then
+            echo "CHECKOUT_REF=$SOURCE_SHA" >> "$GITHUB_ENV"
+          else
+            echo "CHECKOUT_REF=$SOURCE_REF" >> "$GITHUB_ENV"
+          fi
+
+          echo "AGVS_TEST_SQL_SERVER=127.0.0.1" >> "$GITHUB_ENV"
+          echo "AGVS_TEST_SQL_USER=sa" >> "$GITHUB_ENV"
+          echo "AGVS_TEST_SQL_PASSWORD=AGVS_UT_Sql!Passw0rd" >> "$GITHUB_ENV"
+
+      - name: Show resolved inputs
+        shell: bash
+        run: |
+          echo "SOURCE_REPO=$SOURCE_REPO"
+          echo "SOURCE_REF=$SOURCE_REF"
+          echo "SOURCE_SHA=$SOURCE_SHA"
+          echo "CHECKOUT_REF=$CHECKOUT_REF"
+
+      # Checkout AGVSystem first into workspace root, so AGVSystemTests can reference ../AGVSystem, ../VMSystem, etc.
+      - name: Checkout source repo (AGVSystem)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: ${{ env.CHECKOUT_REF }}
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.AGVSYSTEM_CHECKOUT_TOKEN || github.token }}
+
+      - name: Checkout this repo (AGVSystemTests)
+        uses: actions/checkout@v4
+        with:
+          path: AGVSystemTests
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Validate referenced projects exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          csproj="AGVSystemTests/AGVSystemTests.csproj"
+          if [[ ! -f "$csproj" ]]; then
+            echo "::error::Missing $csproj"
+            exit 1
+          fi
+
+          missing=0
+          while IFS= read -r ref; do
+            ref="${ref//\\//}"
+            path="AGVSystemTests/$ref"
+            if [[ ! -f "$path" ]]; then
+              echo "::error::Missing ProjectReference target: $path"
+              missing=1
+            fi
+          done < <(grep -oP '<ProjectReference Include="\\K[^"]+' "$csproj" || true)
+
+          if [[ "$missing" -ne 0 ]]; then
+            echo "::error::One or more ProjectReference files are missing. Ensure the source repo checkout contains these sibling projects at the workspace root."
+            exit 1
+          fi
+
+      - name: Wait for SQL Server port
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/1433) >/dev/null 2>&1; then
+              echo "SQL Server port is open."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::SQL Server did not open port 1433 in time."
+          exit 1
+
+      - name: Restore
+        shell: bash
+        run: dotnet restore AGVSystemTests/AGVSystemTests.csproj
+
+      - name: Test
+        shell: bash
+        run: dotnet test AGVSystemTests/AGVSystemTests.csproj --configuration Release --no-restore --logger "trx;LogFileName=unit-tests.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            **/*.trx
