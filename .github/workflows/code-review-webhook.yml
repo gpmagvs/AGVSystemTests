@@ -1,0 +1,84 @@
+name: Notify Code Reviewer
+
+on:
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - "**"
+
+permissions:
+  contents: read
+
+jobs:
+  notify-code-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Code Reviewer webhook
+        env:
+          CODE_REVIEW_WEBHOOK_URL: ${{ secrets.CODE_REVIEW_WEBHOOK_URL }}
+          CODE_REVIEW_WEBHOOK_KEY: ${{ secrets.CODE_REVIEW_WEBHOOK_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.request
+
+          url = (os.environ.get("CODE_REVIEW_WEBHOOK_URL") or "").strip()
+          key = (os.environ.get("CODE_REVIEW_WEBHOOK_KEY") or "").strip()
+          if not url or not key:
+            print("CODE_REVIEW_WEBHOOK_URL/CODE_REVIEW_WEBHOOK_KEY not set; skipping.")
+            raise SystemExit(0)
+
+          event_path = os.environ.get("GITHUB_EVENT_PATH")
+          if not event_path:
+            print("GITHUB_EVENT_PATH not set; cannot read push payload.", file=sys.stderr)
+            raise SystemExit(1)
+
+          with open(event_path, "r", encoding="utf-8") as f:
+            event = json.load(f)
+
+          def pick_commit(obj):
+            if not isinstance(obj, dict):
+              return None
+            return {
+              "id": obj.get("id"),
+              "message": obj.get("message"),
+              "url": obj.get("url"),
+            }
+
+          payload = {
+            "ref": event.get("ref"),
+            "after": event.get("after"),
+            "repository": {"full_name": (event.get("repository") or {}).get("full_name")},
+            "head_commit": pick_commit(event.get("head_commit")),
+            "commits": [pick_commit(c) for c in (event.get("commits") or [])],
+          }
+
+          data = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+          req = urllib.request.Request(
+            url=url,
+            data=data,
+            method="POST",
+            headers={
+              "Authorization": f"Bearer {key}",
+              "Content-Type": "application/json",
+              "User-Agent": "github-actions/code-review-webhook",
+            },
+          )
+
+          try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+              body = resp.read().decode("utf-8", errors="replace")
+              print(f"Webhook response status: {resp.status}")
+              if body:
+                print(body)
+          except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            print(f"Webhook HTTPError status: {e.code}", file=sys.stderr)
+            if body:
+              print(body, file=sys.stderr)
+            raise
+          PY
