@@ -80,7 +80,7 @@ namespace AGVSystemTests.DATABASE
             queue.TryEnqueue(Item("1", 1, typeof(RowA)));
             queue.TryEnqueue(Item("2", 1, typeof(RowA)));
             queue.TryEnqueue(Item("1", 1, typeof(RowB)));   // 同 key、不同資料表
-            queue.TryEnqueue(Item(1, 1, typeof(RowA)));     // int 1 與字串 "1" 以字串化比對視為同一列
+            queue.TryEnqueue(Item(1, 1, typeof(RowA)));     // 整數 1 與字串 "1" 是不同型別的值（鍵編碼帶型別標記），不視為同一列
             queue.TryEnqueue(new PostgreSqlSyncWorkItem
             {
                 EntityType = typeof(RowA),
@@ -94,8 +94,8 @@ namespace AGVSystemTests.DATABASE
                 PropertyValues = new() { ["Version"] = 1 },
             });
 
-            Assert.AreEqual(5, queue.PendingCount);
-            Assert.AreEqual(1, queue.CoalescedCount);
+            Assert.AreEqual(6, queue.PendingCount);
+            Assert.AreEqual(0, queue.CoalescedCount);
         }
 
         [TestMethod]
