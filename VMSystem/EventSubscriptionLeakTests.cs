@@ -132,7 +132,9 @@ namespace AGVSystemTests.VMSystemTests
             public ProbeOrderHandler() : base(new SemaphoreSlim(1, 1)) { }
             public override ACTION_TYPE OrderAction => ACTION_TYPE.None;
             public Func<Task<double>> Prepare = () => Task.FromResult(0d);
-            public Task RunExecuteOrder() => ExecuteOrder();
+            // StartOrder 內的 `_ = ExecuteOrder()` 不要在背景真的跑 (會與測試搶訂閱數量)；測試要跑時用 RunExecuteOrder 明確呼叫基底實作
+            protected override Task ExecuteOrder() => Task.CompletedTask;
+            public Task RunExecuteOrder() => base.ExecuteOrder();
             // 測試不連 DB / HTTP：準備階段由測試自行決定成功或失敗
             protected override Task<double> PrepareOrderExecution() => Prepare();
             // 以下三個 virtual 蓋掉會連 DB / 警報中心的行為，讓 ExecuteOrder 在假 AGV 上能快速、確定地跑完 finally
@@ -142,10 +144,28 @@ namespace AGVSystemTests.VMSystemTests
             protected override Task ActionsWhenOrderCancle() => Task.CompletedTask;
         }
 
+        /// <summary>
+        /// 讓假 AGV 具備 StartOrder 走到「訂閱」所需的最小狀態 (NavigationState / states)，
+        /// 之後呼叫 StartOrder；StartOrder 只有在訂閱之後才會丟例外時，這裡吞掉。
+        /// </summary>
         private static async Task TryStartOrder(ProbeOrderHandler handler, IAGV agv)
         {
+            var proxy = (FakeAgvProxy)(object)agv;
+            proxy.NavigationStateValue ??= new VehicleNavigationState();
+            proxy.StatesValue ??= new clsRunningStatus();
             try { await handler.StartOrder(agv); }
-            catch (Exception) { /* 假 AGV 沒有 NavigationState，StartOrder 在訂閱之後會丟例外；訂閱數量才是本測試要看的 */ }
+            catch (Exception) { }
+        }
+
+        [TestMethod]
+        public async Task OrderHandler_StartOrder_FailsBeforeExecuteOrder_LeavesNoSubscription()
+        {
+            // 訂閱已移到 `_ = ExecuteOrder()` 正前方：前面的步驟 (ClearEstimatePathInfo / TrajectoryRecorder) 丟例外時不得留下訂閱。
+            // 假 AGV 的 NavigationState 預設為 null，StartOrder 會在 ClearEstimatePathInfo 丟 NullReferenceException。
+            var agv = FakeAgvFactory.Create(out var proxy);
+            var handler = new ProbeOrderHandler();
+            await Assert.ThrowsExceptionAsync<NullReferenceException>(() => handler.StartOrder(agv));
+            Assert.AreEqual(0, proxy.SubscriberCount(MapPointEvent), "StartOrder 在訂閱前失敗，不得殘留訂閱");
         }
 
         [TestMethod]
@@ -199,6 +219,8 @@ namespace AGVSystemTests.VMSystemTests
             handler.OrderData.isVehicleAssignedChanged = true;
             await TryStartOrder(handler, agv);
             Assert.AreEqual(1, proxy.SubscriberCount(MapPointEvent));
+            // StartOrder 之後把 NavigationState 拿掉，讓 finally 後段 (ClearEstimatePathInfo) 丟 NullReferenceException
+            proxy.NavigationStateValue = null;
 
             try { await handler.RunExecuteOrder(); } catch (Exception) { /* finally 後段丟例外是預期的 */ }
 
