@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using AGVSystemCommonNet6.MAP;
+using AGVSystemCommonNet6.AGVDispatch.Model;
 using VMSystem.AGV;
 
 namespace AGVSystemTests.VMSystemTests
@@ -15,6 +16,10 @@ namespace AGVSystemTests.VMSystemTests
         private readonly ConcurrentDictionary<string, Delegate?> _events = new();
         public string AgvName { get; set; } = "FakeAGV";
         public MapPoint CurrentPoint { get; set; } = new MapPoint { TagNumber = 1 };
+        /// <summary>IAGV.NavigationState 的回傳值，預設 null (模擬「StartOrder 在訂閱前就失敗」)。</summary>
+        public VehicleNavigationState? NavigationStateValue { get; set; }
+        /// <summary>IAGV.states 的回傳值，預設 null。</summary>
+        public clsRunningStatus? StatesValue { get; set; }
 
         public int SubscriberCount(string eventName)
             => _events.TryGetValue(eventName, out var d) && d != null ? d.GetInvocationList().Length : 0;
@@ -41,6 +46,8 @@ namespace AGVSystemTests.VMSystemTests
                 case "get_Name": return AgvName;
                 case "get_AgvIDStr": return AgvName;
                 case "get_currentMapPoint": return CurrentPoint;
+                case "get_NavigationState": return NavigationStateValue;
+                case "get_states": return StatesValue;
             }
             var rt = targetMethod.ReturnType;
             if (rt == typeof(void)) return null;
