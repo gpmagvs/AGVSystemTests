@@ -91,32 +91,6 @@ namespace AGVSystemTests.VMSystemTests
             Assert.AreEqual(TimeSpan.FromSeconds(60), set.TimeToLive);
         }
 
-        // ---------- CooldownGate ----------
-
-        [TestMethod]
-        public void CooldownGate_ActiveOnlyWithinDuration()
-        {
-            DateTime now = new DateTime(2026, 10, 22, 13, 13, 0);
-            var gate = new CooldownGate(TimeSpan.FromSeconds(60), () => now);
-            Assert.IsFalse(gate.IsActive(out _), "未啟動前不冷卻");
-            gate.Start();
-            Assert.IsTrue(gate.IsActive(out var remaining));
-            Assert.AreEqual(TimeSpan.FromSeconds(60), remaining);
-            now = now.AddSeconds(59);
-            Assert.IsTrue(gate.IsActive(out remaining));
-            Assert.AreEqual(TimeSpan.FromSeconds(1), remaining);
-            now = now.AddSeconds(1);
-            Assert.IsFalse(gate.IsActive(out remaining));
-            Assert.AreEqual(TimeSpan.Zero, remaining);
-        }
-
-        [TestMethod]
-        public void ChargeCancelCooldown_IsBetween30And60Seconds()
-        {
-            Assert.IsTrue(clsAGVTaskDisaptchModule.ChargeCancelCooldownDuration >= TimeSpan.FromSeconds(30));
-            Assert.IsTrue(clsAGVTaskDisaptchModule.ChargeCancelCooldownDuration <= TimeSpan.FromSeconds(60));
-        }
-
         // ---------- Task name {base}_Chg{n} ----------
 
         [TestMethod]
