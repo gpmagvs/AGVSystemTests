@@ -146,32 +146,40 @@ jobs:
       - name: Preflight (private repo checkout)
         shell: bash
         run: |
-          if [[ "${GITHUB_REPOSITORY}" == "${SOURCE_REPO}" ]]; then
-            # PAT-free path (running inside the source repo).
-            exit 0
-          fi
           if [[ -n "${AGVSYSTEM_CHECKOUT_TOKEN:-}" ]]; then
             exit 0
           fi
 
           cat <<'MSG'
-          ::error::無法 checkout 來源 repo：此 workflow 的 caller repo（GITHUB_REPOSITORY）與要 checkout 的來源 repo（SOURCE_REPO）不同，而且沒有設定 secrets.AGVSYSTEM_CHECKOUT_TOKEN。
+          ::error::缺少 secrets.AGVSYSTEM_CHECKOUT_TOKEN，無法 checkout 其它 sibling repo。
 
-          這通常是因為來源 repo（SOURCE_REPO）是 private repo，而 caller repo 的 GITHUB_TOKEN 沒有權限讀取，因此會出現「Repository not found (404)」。
+          這個 workflow 會為了滿足 `AGVSystemTests.csproj` 的 ProjectReference，checkout 以下四個 sibling repo 到固定路徑：
+          - gpmagvs/AGVSystem → ./AGVSystem
+          - gpmagvs/AGVSystemCommonNet6 → ./AGVSystemCommonNet6
+          - gpmagvs/EquipmentManagment → ./EquipmentManagment
+          - gpmagvs/VMSystem → ./VMSystem
 
-          解法（二選一）：
-          1) 推薦：由來源 repo（SOURCE_REPO）觸發（workflow_call），讓 GITHUB_TOKEN 來自來源 repo（不需要 PAT）
-          2) 或：在本 workflow 所在的 repo（gpmagvs/AGVSystemTests）設定 repo secret `AGVSYSTEM_CHECKOUT_TOKEN`（PAT / fine-grained token，至少 contents:read 可讀取來源 repo）
+          但 GitHub Actions 的 GITHUB_TOKEN **無法跨 repo** 讀取其它 private repo（caller repo 以外的 repo 通常會回 404：Repository not found）。
+          例如近期失敗 log 會看到類似：
+          - env AGVSYSTEM_CHECKOUT_TOKEN is EMPTY
+          - fatal: repository 'https://github.com/gpmagvs/AGVSystem/' not found
+
+          請在呼叫端 workflow（例如 gpmagvs/AGVSystem*）傳入 `secrets.AGVSYSTEM_CHECKOUT_TOKEN`：
+          - 需可讀取以上四個 repo（fine-grained PAT / GitHub App token，至少 contents:read）
 
           ---
 
-          ::error::Cannot checkout source repo: the caller repository (GITHUB_REPOSITORY) is different from SOURCE_REPO, and secrets.AGVSYSTEM_CHECKOUT_TOKEN is not set.
+          ::error::Missing secrets.AGVSYSTEM_CHECKOUT_TOKEN; cannot checkout other sibling repos.
 
-          This usually means SOURCE_REPO is private and the caller repo's GITHUB_TOKEN cannot read it (GitHub returns 404 “Repository not found”).
+          This workflow must checkout these sibling repos to satisfy `AGVSystemTests.csproj` ProjectReferences:
+          - gpmagvs/AGVSystem → ./AGVSystem
+          - gpmagvs/AGVSystemCommonNet6 → ./AGVSystemCommonNet6
+          - gpmagvs/EquipmentManagment → ./EquipmentManagment
+          - gpmagvs/VMSystem → ./VMSystem
 
-          Fix (choose one):
-          1) Recommended: trigger via workflow_call from SOURCE_REPO so the GITHUB_TOKEN belongs to SOURCE_REPO (no PAT needed)
-          2) Or: add repo secret `AGVSYSTEM_CHECKOUT_TOKEN` in gpmagvs/AGVSystemTests (PAT / fine-grained token with at least contents:read for SOURCE_REPO)
+          The default GITHUB_TOKEN typically cannot read other private repos across the org, which results in misleading 404 “Repository not found”.
+
+          Fix: pass `secrets.AGVSYSTEM_CHECKOUT_TOKEN` from the caller workflow (fine-grained PAT / GitHub App token with at least contents:read to the 4 repos above).
           MSG
           exit 1
 
@@ -226,7 +234,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      # Non-caller sibling checkouts. If a token is provided, use it; otherwise fall back to the caller GITHUB_TOKEN.
+      # Non-caller sibling checkouts. Require explicit token; never fall back to caller GITHUB_TOKEN.
       - name: Checkout AGVSystem (non-caller) - with token
         if: ${{ github.repository != 'gpmagvs/AGVSystem' && env.AGVSYSTEM_CHECKOUT_TOKEN != '' }}
         uses: actions/checkout@v4
@@ -237,16 +245,6 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           token: ${{ env.AGVSYSTEM_CHECKOUT_TOKEN }}
-
-      - name: Checkout AGVSystem (non-caller) - without token
-        if: ${{ github.repository != 'gpmagvs/AGVSystem' && env.AGVSYSTEM_CHECKOUT_TOKEN == '' }}
-        uses: actions/checkout@v4
-        with:
-          repository: gpmagvs/AGVSystem
-          path: AGVSystem
-          ref: ${{ env.AGVS_REF }}
-          fetch-depth: 0
-          submodules: recursive
 
       - name: Checkout AGVSystemCommonNet6 (non-caller) - with token
         if: ${{ github.repository != 'gpmagvs/AGVSystemCommonNet6' && env.AGVSYSTEM_CHECKOUT_TOKEN != '' }}
@@ -259,16 +257,6 @@ jobs:
           submodules: recursive
           token: ${{ env.AGVSYSTEM_CHECKOUT_TOKEN }}
 
-      - name: Checkout AGVSystemCommonNet6 (non-caller) - without token
-        if: ${{ github.repository != 'gpmagvs/AGVSystemCommonNet6' && env.AGVSYSTEM_CHECKOUT_TOKEN == '' }}
-        uses: actions/checkout@v4
-        with:
-          repository: gpmagvs/AGVSystemCommonNet6
-          path: AGVSystemCommonNet6
-          ref: ${{ env.COMMON_REF }}
-          fetch-depth: 0
-          submodules: recursive
-
       - name: Checkout EquipmentManagment (non-caller) - with token
         if: ${{ github.repository != 'gpmagvs/EquipmentManagment' && env.AGVSYSTEM_CHECKOUT_TOKEN != '' }}
         uses: actions/checkout@v4
@@ -280,16 +268,6 @@ jobs:
           submodules: recursive
           token: ${{ env.AGVSYSTEM_CHECKOUT_TOKEN }}
 
-      - name: Checkout EquipmentManagment (non-caller) - without token
-        if: ${{ github.repository != 'gpmagvs/EquipmentManagment' && env.AGVSYSTEM_CHECKOUT_TOKEN == '' }}
-        uses: actions/checkout@v4
-        with:
-          repository: gpmagvs/EquipmentManagment
-          path: EquipmentManagment
-          ref: ${{ env.EQUIP_REF }}
-          fetch-depth: 0
-          submodules: recursive
-
       - name: Checkout VMSystem (non-caller) - with token
         if: ${{ github.repository != 'gpmagvs/VMSystem' && env.AGVSYSTEM_CHECKOUT_TOKEN != '' }}
         uses: actions/checkout@v4
@@ -300,16 +278,6 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           token: ${{ env.AGVSYSTEM_CHECKOUT_TOKEN }}
-
-      - name: Checkout VMSystem (non-caller) - without token
-        if: ${{ github.repository != 'gpmagvs/VMSystem' && env.AGVSYSTEM_CHECKOUT_TOKEN == '' }}
-        uses: actions/checkout@v4
-        with:
-          repository: gpmagvs/VMSystem
-          path: VMSystem
-          ref: ${{ env.VMS_REF }}
-          fetch-depth: 0
-          submodules: recursive
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
